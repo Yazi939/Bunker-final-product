@@ -43,12 +43,16 @@
       {
         "from": "src",
         "to": "app/src",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "build/database",
         "to": "app/build/database",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
