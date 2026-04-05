@@ -52,6 +52,8 @@ export default defineConfig({
   server: {
     port: 5174,
     strictPort: true,
+    // Иначе Vite подставляет в import'ы http://localhost:5174 — с другого ПК все модули «бьют» в localhost клиента
+    ...(devPublicHost !== '' ? { origin: `http://${devPublicHost}:5174` } : {}),
     headers: {
       'Content-Security-Policy': [
         `default-src 'self' file: http://localhost:* ws://localhost:* http://89.169.170.164:* ws://89.169.170.164:*${devHostCsp};`,

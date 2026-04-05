@@ -87,7 +87,7 @@ const ExpenseManagementWeb: React.FC = () => {
     if (window.location.protocol === 'https:') {
       return 'https://bunker-boats.ru/api';
     }
-    return 'http://89.169.170.164:5000/api';
+    return `http://${window.location.hostname}:5000/api`;
   };
 
   const API_URL = getApiUrl();
