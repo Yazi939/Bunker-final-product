@@ -7,6 +7,12 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 // Check if HMR is disabled via environment variable
 const disableHmr = process.env.VITE_DISABLE_HMR === 'true';
+// Публичный IP/домен для доступа к dev-серверу с другой машины (иначе HMR цепляется к localhost и страница «висит»)
+const devPublicHost = process.env.VITE_DEV_PUBLIC_HOST?.trim() ?? '';
+const devHostCsp =
+  devPublicHost !== ''
+    ? ` http://${devPublicHost}:* ws://${devPublicHost}:* http://${devPublicHost}:5000 ws://${devPublicHost}:5000`
+    : '';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -48,12 +54,12 @@ export default defineConfig({
     strictPort: true,
     headers: {
       'Content-Security-Policy': [
-        "default-src 'self' file: http://localhost:* ws://localhost:* http://89.169.170.164:* ws://89.169.170.164:*;",
+        `default-src 'self' file: http://localhost:* ws://localhost:* http://89.169.170.164:* ws://89.169.170.164:*${devHostCsp};`,
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' file:;",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com file:;",
         "img-src 'self' data: blob: file: http://localhost:* https:;",
         "font-src 'self' data: https://fonts.gstatic.com file:;",
-        "connect-src 'self' ws://localhost:* http://localhost:* ws://89.169.170.164:* http://89.169.170.164:* ws://89.169.170.164:5000 http://89.169.170.164:5000;",
+        `connect-src 'self' ws://localhost:* http://localhost:* ws://89.169.170.164:* http://89.169.170.164:* ws://89.169.170.164:5000 http://89.169.170.164:5000${devHostCsp};`,
         "worker-src 'self' blob: file:;",
         "frame-src 'self' file:;"
       ].join(' ')
@@ -62,13 +68,16 @@ export default defineConfig({
       usePolling: true,
       interval: 100
     },
-    hmr: !disableHmr && {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 5174,
-      clientPort: 5174,
-      timeout: 5000
-    }
+    hmr:
+      disableHmr
+        ? false
+        : {
+            protocol: 'ws',
+            host: devPublicHost || 'localhost',
+            port: 5174,
+            clientPort: 5174,
+            timeout: 5000
+          }
   },
   define: {
     '__ELECTRON_DEV__': JSON.stringify(true),
