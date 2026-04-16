@@ -23,11 +23,12 @@ const convertToUTC = (moscowDate) => {
   return new Date(date.getTime() - MOSCOW_TIMEZONE_OFFSET);
 };
 
-// Функция для форматирования даты в московском времени
+// convertToMoscowTime уже возвращает ISO-строку без Z — не вызывать .toISOString()
 const formatMoscowDate = (utcDate) => {
   if (!utcDate) return null;
-  const moscowDate = convertToMoscowTime(utcDate);
-  return moscowDate.toISOString().replace('T', ' ').substring(0, 19);
+  const moscowIso = convertToMoscowTime(utcDate);
+  if (!moscowIso || typeof moscowIso !== 'string') return null;
+  return moscowIso.replace('T', ' ').substring(0, 19);
 };
 
 const fuelController = {

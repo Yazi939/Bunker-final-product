@@ -1,37 +1,32 @@
-# Настройка сервера Fuel Manager
+# Fuel App Server
 
-## Проблема с запуском сервера
+## Stack
 
-Если вы видите ошибку:
-```
-[nodemon] app crashed - waiting for file changes before starting...
-```
+- Node.js + Express + Socket.IO
+- Sequelize + SQLite
 
-Необходимо настроить подключение к MongoDB.
+## Environment
 
-## Настройка MongoDB
+Copy `.env.example` to `.env` and set:
 
-1. Убедитесь, что MongoDB установлена и запущена на вашем компьютере.
-2. Создайте файл `.env` в папке `server` со следующим содержимым:
+- `NODE_ENV=production`
+- `PORT=5000`
+- `JWT_SECRET=<secret>`
+- `SQLITE_PATH=/data/database.sqlite` (or local path)
+- `CORS_ORIGINS=http://localhost:8080`
+- `SOCKET_CORS_ORIGINS=http://localhost:8080`
 
-```
-NODE_ENV=development
-PORT=5000
-MONGO_URI=mongodb://localhost:27017/fuel_manager
-JWT_SECRET=fuel1234567890secret
-```
+## Run locally
 
-## Установка MongoDB (если не установлена)
-
-### Windows
-1. Скачайте MongoDB Community Server с официального сайта: https://www.mongodb.com/try/download/community
-2. Установите MongoDB, следуя инструкциям установщика.
-3. MongoDB будет запущена как служба Windows.
-
-### Проверка MongoDB
-Чтобы проверить, запущена ли MongoDB, выполните в командной строке:
-```
-mongod --version
+```bash
+npm ci
+npm run dev
 ```
 
-Если команда не найдена, добавьте путь к MongoDB в переменную PATH. 
+## Run in Docker
+
+Use project root compose:
+
+```bash
+docker compose up --build
+```

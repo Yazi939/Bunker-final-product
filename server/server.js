@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+require('dotenv').config();
 const { createServer } = require('http');
 const { sequelize, config } = require('./config/database');
 const cookieParser = require('cookie-parser');
@@ -13,17 +14,24 @@ const orderRoutes = require('./routes/orderRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const sync = require('./routes/sync');
 const fuelRoutes = require('./routes/fuelRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
+const seedUsers = require('./data/seedUsers');
+const seedDemoData = require('./data/seedDemo');
+const migrateUsersSchema = require('./data/migrateUsersSchema');
+const migrateBusinessTables = require('./data/migrateBusinessTables');
 
 const app = express();
 const httpServer = createServer(app);
 
-// Настройка CORS
-app.use(cors({
-    origin: ['http://localhost:5174', 'http://localhost:3000', 'http://localhost:5173', 'http://89.169.170.164:*'],
+const corsOrigin = config.nodeEnv === 'production' ? config.corsOrigins : true;
+app.use(
+  cors({
+    origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
 
 // Инициализация Socket.IO
 socket.init(httpServer);
@@ -39,6 +47,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/sync', sync);
 app.use('/api/fuel', fuelRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -52,9 +61,13 @@ const initializeDatabase = async () => {
     await sequelize.authenticate();
     console.log('SQLite подключена успешно');
     
-    // Синхронизация моделей с базой данных
     await sequelize.sync();
     console.log('Модели синхронизированы с базой данных');
+
+    await migrateUsersSchema();
+    await migrateBusinessTables();
+    await seedUsers();
+    await seedDemoData();
   } catch (error) {
     console.error('Ошибка при инициализации базы данных:', error);
     process.exit(1);

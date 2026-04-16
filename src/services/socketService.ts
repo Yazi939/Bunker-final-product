@@ -3,10 +3,10 @@ import { FuelTransaction } from '../types/electron';
 
 // Автоматическое определение Socket URL в зависимости от платформы
 const getSocketUrl = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') {
-    return 'https://bunker-boats.ru';
+  if (typeof window !== 'undefined' && window.location) {
+    return undefined;
   }
-  return 'http://89.169.170.164:5000';
+  return process.env.SOCKET_URL || 'http://localhost:5000';
 };
 
 class SocketService {
@@ -36,7 +36,8 @@ class SocketService {
       this.socket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         timeout: 10000,
-        forceNew: true
+        forceNew: true,
+        path: '/socket.io'
       });
     } catch (error) {
       console.error('Ошибка создания Socket.IO:', error);

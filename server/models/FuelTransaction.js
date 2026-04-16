@@ -20,6 +20,11 @@ const FuelTransaction = sequelize.define('FuelTransaction', {
       min: { args: [0], msg: 'Количество топлива должно быть положительным числом' }
     }
   },
+  /** Старое поле SQLite (NOT NULL): дублирует объём */
+  amount: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+  },
   price: {
     type: DataTypes.FLOAT,
     allowNull: true,
@@ -106,7 +111,17 @@ const FuelTransaction = sequelize.define('FuelTransaction', {
   }
 }, {
   timestamps: true,
-  tableName: 'FuelTransactions'
+  tableName: 'FuelTransactions',
+  hooks: {
+    beforeValidate(row) {
+      if (row.volume != null && (row.amount == null || row.amount === undefined)) {
+        row.amount = row.volume;
+      }
+      if (row.amount != null && (row.volume == null || row.volume === undefined)) {
+        row.volume = row.amount;
+      }
+    },
+  },
 });
 
 module.exports = FuelTransaction; 

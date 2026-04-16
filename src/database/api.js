@@ -2,16 +2,15 @@ const axios = require('axios');
 
 // Автоматическое определение API URL в зависимости от платформы
 const getApiUrl = () => {
-  // Если это веб-версия и загружена по HTTPS
-  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') {
-    return 'https://bunker-boats.ru/api';
-  }
-  // Если переменная окружения задана
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-  // По умолчанию для разработки
-  return 'http://89.169.170.164:5000/api';
+
+  if (typeof window !== 'undefined' && window.location) {
+    return '/api';
+  }
+
+  return process.env.API_URL || 'http://localhost:5000/api';
 };
 
 const API_URL = getApiUrl();

@@ -112,6 +112,7 @@ router.post('/', auth.protect, async (req, res) => {
     }
 
     const expenseData = {
+      id: req.body.id || `exp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       type,
       category,
       description,
@@ -122,8 +123,9 @@ router.post('/', auth.protect, async (req, res) => {
       invoice,
       notes,
       userId: req.user.id,
-      createdBy: req.user.username || req.user.name,
-      status: 'active'
+      createdBy: req.user.username || req.user.name || 'user',
+      status: 'active',
+      timestamp: Date.now(),
     };
 
     const expense = await Expense.create(expenseData);

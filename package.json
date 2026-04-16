@@ -21,7 +21,10 @@
     "package": "electron-builder --win --publish never",
     "build:ts": "tsc -p tsconfig.preload.json",
     "build:backend": "tsc -p tsconfig.backend.json",
-    "postbuild": "copy src\\database\\api.js build\\database\\api.js && copy src\\database\\queries.js build\\database\\queries.js"
+    "postbuild": "node scripts/postbuild.cjs",
+    "build:web": "vite build",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down"
   },
   "build": {
     "appId": "com.yourcompany.fuelapp",

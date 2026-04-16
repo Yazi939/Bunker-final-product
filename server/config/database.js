@@ -2,18 +2,30 @@ const { Sequelize } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 
-// Конфигурация для сервера
-const config = {
-    port: 5000,
-    dbHost: '89.169.170.164',
-    dbPath: '/home/ubuntufuel/fuel-app-db/database.sqlite',
-    jwtSecret: 'your-secret-key',
-    jwtExpire: '30d',
-    jwtCookieExpire: 30,
-    nodeEnv: 'production'
+const defaultSqlitePath = path.join(__dirname, '..', 'data', 'database.sqlite');
+const parseCsv = (value, fallback = []) => {
+    if (!value) {
+        return fallback;
+    }
+    return value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
 };
 
-// Создаем директорию для базы данных, если она не существует
+// Конфигурация для сервера (SQLITE_PATH — путь к БД; по умолчанию server/data/database.sqlite)
+const config = {
+    port: Number(process.env.PORT) || 5000,
+    dbHost: process.env.DB_HOST || 'localhost',
+    dbPath: process.env.SQLITE_PATH || defaultSqlitePath,
+    jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
+    jwtExpire: '30d',
+    jwtCookieExpire: 30,
+    nodeEnv: process.env.NODE_ENV || 'development',
+    corsOrigins: parseCsv(process.env.CORS_ORIGINS, ['http://localhost:5174']),
+    socketCorsOrigins: parseCsv(process.env.SOCKET_CORS_ORIGINS, ['http://localhost:5174'])
+};
+
 const dbDir = path.dirname(config.dbPath);
 if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
@@ -25,14 +37,5 @@ const sequelize = new Sequelize({
     host: config.dbHost,
     logging: false
 });
-
-// Проверяем подключение к базе данных
-sequelize.authenticate()
-    .then(() => {
-        console.log('SQLite подключена успешно');
-    })
-    .catch(err => {
-        console.error('Ошибка подключения к SQLite:', err);
-    });
 
 module.exports = { sequelize, config }; 

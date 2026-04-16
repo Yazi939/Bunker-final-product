@@ -1,3 +1,66 @@
+# Bunker Boats: Linux + Docker
+
+## Requirements
+
+- Docker 24+
+- Docker Compose v2
+
+## Environment
+
+Create `server/.env` from `server/.env.example` and set at least:
+
+```env
+NODE_ENV=production
+PORT=5000
+JWT_SECRET=change_me
+SQLITE_PATH=/data/database.sqlite
+CORS_ORIGINS=http://localhost:8080
+SOCKET_CORS_ORIGINS=http://localhost:8080
+```
+
+## Run in Docker
+
+```bash
+docker compose up --build -d
+```
+
+Web app: `http://localhost:8080`  
+API: `http://localhost:5000/api/health`
+
+Stop:
+
+```bash
+docker compose down
+```
+
+With DB reset:
+
+```bash
+docker compose down -v
+```
+
+## Local Linux development (without Docker)
+
+Backend:
+
+```bash
+cd server
+npm ci
+npm run dev
+```
+
+Frontend:
+
+```bash
+npm ci
+npm run dev
+```
+
+Vite proxies `/api` and `/socket.io` to `http://localhost:5000` by default. Override with:
+
+```bash
+VITE_API_TARGET=http://your-api-host:5000 npm run dev
+```
 # Bunker Boats
 
 Система управления топливом и расходами для компании Bunker Boats.

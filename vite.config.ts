@@ -13,6 +13,7 @@ const devHostCsp =
   devPublicHost !== ''
     ? ` http://${devPublicHost}:* ws://${devPublicHost}:* http://${devPublicHost}:5000 ws://${devPublicHost}:5000`
     : '';
+const devApiTarget = process.env.VITE_API_TARGET || 'http://localhost:5000';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -56,15 +57,26 @@ export default defineConfig({
     ...(devPublicHost !== '' ? { origin: `http://${devPublicHost}:5174` } : {}),
     headers: {
       'Content-Security-Policy': [
-        `default-src 'self' file: http://localhost:* ws://localhost:* http://89.169.170.164:* ws://89.169.170.164:*${devHostCsp};`,
+        `default-src 'self' file: http://localhost:* ws://localhost:*${devHostCsp};`,
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' file:;",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com file:;",
         "img-src 'self' data: blob: file: http://localhost:* https:;",
         "font-src 'self' data: https://fonts.gstatic.com file:;",
-        `connect-src 'self' ws://localhost:* http://localhost:* ws://89.169.170.164:* http://89.169.170.164:* ws://89.169.170.164:5000 http://89.169.170.164:5000${devHostCsp};`,
+        `connect-src 'self' ws://localhost:* http://localhost:*${devHostCsp};`,
         "worker-src 'self' blob: file:;",
         "frame-src 'self' file:;"
       ].join(' ')
+    },
+    proxy: {
+      '/api': {
+        target: devApiTarget,
+        changeOrigin: true
+      },
+      '/socket.io': {
+        target: devApiTarget,
+        ws: true,
+        changeOrigin: true
+      }
     },
     watch: {
       usePolling: true,
