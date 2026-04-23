@@ -42,7 +42,15 @@ const authController = {
   // @access  Public
   login: async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const rawUsername = req.body?.username || req.body?.email || '';
+      const username = String(rawUsername).trim();
+      const password = req.body?.password;
+
+      console.log('LOGIN ATTEMPT:', {
+        username,
+        hasPassword: Boolean(password),
+        origin: req.headers.origin || null
+      });
 
       // Проверка наличия username и пароля
       if (!username || !password) {
