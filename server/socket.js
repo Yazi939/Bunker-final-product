@@ -1,5 +1,4 @@
 const socketIO = require('socket.io');
-const { config } = require('./config/database');
 
 let io;
 
@@ -7,7 +6,7 @@ const init = (server) => {
   if (!io) {
     io = socketIO(server, {
       cors: {
-        origin: config.nodeEnv === 'production' ? config.socketCorsOrigins : true,
+        origin: true,
         methods: ['GET', 'POST'],
         credentials: true
       },
