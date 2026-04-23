@@ -4,7 +4,12 @@ import { FuelTransaction } from '../types/electron';
 // Автоматическое определение Socket URL в зависимости от платформы
 const getSocketUrl = () => {
   if (typeof window !== 'undefined' && window.location) {
-    return undefined;
+    const base =
+      (window as any).API_BASE_URL ||
+      (window.location.hostname === 'localhost' && !window.location.port
+        ? 'http://91.237.249.96:5000/api'
+        : `${window.location.protocol}//${window.location.hostname}:5000/api`);
+    return String(base).replace(/\/api\/?$/, '');
   }
   return process.env.SOCKET_URL || 'http://localhost:5000';
 };

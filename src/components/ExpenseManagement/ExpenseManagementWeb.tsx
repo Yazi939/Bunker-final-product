@@ -84,6 +84,12 @@ const ExpenseManagementWeb: React.FC = () => {
 
   // Определяем базовый URL API
   const getApiUrl = () => {
+    if ((window as any).API_BASE_URL) {
+      return (window as any).API_BASE_URL;
+    }
+    if (window.location.hostname === 'localhost' && !window.location.port) {
+      return 'http://91.237.249.96:5000/api';
+    }
     if (window.location.protocol === 'https:') {
       return 'https://bunker-boats.ru/api';
     }

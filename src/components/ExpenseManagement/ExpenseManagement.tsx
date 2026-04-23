@@ -85,6 +85,12 @@ const ExpenseManagement: React.FC = () => {
 
   // Автоматическое определение API URL
   const getExpenseApiUrl = () => {
+    if (typeof window !== 'undefined' && (window as any).API_BASE_URL) {
+      return (window as any).API_BASE_URL;
+    }
+    if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost' && !window.location.port) {
+      return 'http://91.237.249.96:5000/api';
+    }
     if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') {
       return 'https://bunker-boats.ru/api';
     }

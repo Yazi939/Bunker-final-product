@@ -46,12 +46,16 @@
       {
         "from": "src",
         "to": "app/src",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "build/database",
         "to": "app/build/database",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
@@ -72,6 +76,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.0",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^7.6.2",
+    "@capacitor/core": "^8.3.1",
     "@types/socket.io-client": "^1.4.36",
     "antd": "^5.14.1",
     "axios": "^1.9.0",
