@@ -15,10 +15,12 @@ const healthRoutes = require('./routes/healthRoutes');
 const sync = require('./routes/sync');
 const fuelRoutes = require('./routes/fuelRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
+const deviceRoutes = require('./routes/deviceRoutes');
 const seedUsers = require('./data/seedUsers');
 const seedDemoData = require('./data/seedDemo');
 const migrateUsersSchema = require('./data/migrateUsersSchema');
 const migrateBusinessTables = require('./data/migrateBusinessTables');
+const migrateAllowedDevices = require('./data/migrateAllowedDevices');
 
 const app = express();
 const httpServer = createServer(app);
@@ -47,6 +49,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/sync', sync);
 app.use('/api/fuel', fuelRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/devices', deviceRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -65,6 +68,7 @@ const initializeDatabase = async () => {
 
     await migrateUsersSchema();
     await migrateBusinessTables();
+    await migrateAllowedDevices();
     await seedUsers();
     await seedDemoData();
   } catch (error) {

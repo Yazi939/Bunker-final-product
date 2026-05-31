@@ -4,6 +4,7 @@ import { useFuelMetrics } from '../../hooks/useFuelMetrics';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { fuelService } from '../../services/api';
+import { getFuelRemainderValueStyle } from '../../utils/fuelDisplayUtils';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -92,6 +93,7 @@ const Dashboard: React.FC = () => {
                 value={metrics.totalBalance}
                 suffix="л"
                 precision={2}
+                valueStyle={getFuelRemainderValueStyle(metrics.totalBalance)}
               />
             </Card>
           </Col>
@@ -102,6 +104,7 @@ const Dashboard: React.FC = () => {
                 value={metrics.baseBalance}
                 suffix="л"
                 precision={2}
+                valueStyle={getFuelRemainderValueStyle(metrics.baseBalance)}
               />
             </Card>
           </Col>
@@ -112,6 +115,7 @@ const Dashboard: React.FC = () => {
                 value={metrics.bunkerBalance}
                 suffix="л"
                 precision={2}
+                valueStyle={getFuelRemainderValueStyle(metrics.bunkerBalance)}
               />
             </Card>
           </Col>

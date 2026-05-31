@@ -1,7 +1,6 @@
 const FuelTransaction = require('../models/FuelTransaction');
 const { User } = require('../models');
 const socket = require('../socket');
-const { Op } = require('sequelize');
 
 // Московская временная зона (UTC+3)
 const MOSCOW_TIMEZONE_OFFSET = 3 * 60 * 60 * 1000; // 3 часа в миллисекундах
@@ -29,6 +28,88 @@ const formatMoscowDate = (utcDate) => {
   const moscowIso = convertToMoscowTime(utcDate);
   if (!moscowIso || typeof moscowIso !== 'string') return null;
   return moscowIso.replace('T', ' ').substring(0, 19);
+};
+
+const BALANCE_TYPES = new Set([
+  'purchase',
+  'sale',
+  'drain',
+  'base_to_bunker',
+  'bunker_to_base',
+  'bunker_sale',
+]);
+
+const applyBalanceEffect = (type, volume, balances) => {
+  const safeVolume = Number(volume) || 0;
+  switch (type) {
+    case 'purchase':
+      balances.base += safeVolume;
+      break;
+    case 'sale':
+      balances.bunker -= safeVolume;
+      break;
+    case 'bunker_sale':
+    case 'drain':
+      balances.base -= safeVolume;
+      break;
+    case 'base_to_bunker':
+      balances.base -= safeVolume;
+      balances.bunker += safeVolume;
+      break;
+    case 'bunker_to_base':
+      balances.base += safeVolume;
+      balances.bunker -= safeVolume;
+      break;
+    default:
+      break;
+  }
+};
+
+const summarizeFuelBalances = (transactions) => {
+  const rawByFuel = {};
+  for (const tx of transactions) {
+    if (tx.frozen || !BALANCE_TYPES.has(tx.type)) continue;
+    const fuelType = tx.fuelType || 'diesel';
+    if (!rawByFuel[fuelType]) {
+      rawByFuel[fuelType] = { base: 0, bunker: 0 };
+    }
+    applyBalanceEffect(tx.type, tx.volume, rawByFuel[fuelType]);
+  }
+
+  const adjustments = [];
+  Object.entries(rawByFuel).forEach(([fuelType, raw]) => {
+    const clampedBase = Math.max(raw.base, 0);
+    const clampedBunker = Math.max(raw.bunker, 0);
+    const baseAdjustment = clampedBase - raw.base;
+    const bunkerAdjustment = clampedBunker - raw.bunker;
+    if (baseAdjustment > 0 || bunkerAdjustment > 0) {
+      adjustments.push({
+        fuelType,
+        rawBase: raw.base,
+        rawBunker: raw.bunker,
+        clampedBase,
+        clampedBunker,
+        baseAdjustment,
+        bunkerAdjustment,
+      });
+    }
+  });
+
+  return adjustments;
+};
+
+const logBalanceAdjustments = ({ action, transactionId, userId, adjustments }) => {
+  if (!adjustments.length) return;
+  console.warn(
+    '[fuel-soft-floor]',
+    JSON.stringify({
+      action,
+      transactionId,
+      userId,
+      adjustments,
+      at: new Date().toISOString(),
+    }),
+  );
 };
 
 const fuelController = {
@@ -189,6 +270,18 @@ const fuelController = {
 
       const transaction = await FuelTransaction.create(transactionData);
 
+      const activeTransactions = await FuelTransaction.findAll({
+        attributes: ['id', 'type', 'volume', 'fuelType', 'frozen', 'timestamp', 'createdAt'],
+        order: [['timestamp', 'ASC'], ['createdAt', 'ASC']],
+      });
+      const adjustments = summarizeFuelBalances(activeTransactions);
+      logBalanceAdjustments({
+        action: 'create',
+        transactionId: transaction.id,
+        userId: req.user.id,
+        adjustments,
+      });
+
       // Конвертируем время для ответа в московское
       const responseData = transaction.toJSON();
       if (responseData.createdAt) {
@@ -198,6 +291,7 @@ const fuelController = {
         responseData.updatedAt = convertToMoscowTime(responseData.updatedAt);
       }
       responseData.formattedDate = formatMoscowDate(transaction.createdAt);
+      responseData.balanceAdjustments = adjustments;
 
       // Отправляем уведомления через Socket.IO
       const io = socket.getIO();
@@ -314,6 +408,19 @@ const fuelController = {
         }
         responseData.formattedDate = formatMoscowDate(updatedTransaction.createdAt);
 
+        const activeTransactions = await FuelTransaction.findAll({
+          attributes: ['id', 'type', 'volume', 'fuelType', 'frozen', 'timestamp', 'createdAt'],
+          order: [['timestamp', 'ASC'], ['createdAt', 'ASC']],
+        });
+        const adjustments = summarizeFuelBalances(activeTransactions);
+        logBalanceAdjustments({
+          action: 'update',
+          transactionId: updatedTransaction.id,
+          userId: req.user.id,
+          adjustments,
+        });
+        responseData.balanceAdjustments = adjustments;
+
         // Отправляем уведомления через Socket.IO
         const io = socket.getIO();
         io.emit('transaction:updated', responseData);
@@ -366,6 +473,18 @@ const fuelController = {
       console.log('Delete result:', deleted);
 
       if (deleted) {
+        const activeTransactions = await FuelTransaction.findAll({
+          attributes: ['id', 'type', 'volume', 'fuelType', 'frozen', 'timestamp', 'createdAt'],
+          order: [['timestamp', 'ASC'], ['createdAt', 'ASC']],
+        });
+        const adjustments = summarizeFuelBalances(activeTransactions);
+        logBalanceAdjustments({
+          action: 'delete',
+          transactionId: transaction.id,
+          userId: req.user.id,
+          adjustments,
+        });
+
         // Отправляем уведомления через Socket.IO
         const io = socket.getIO();
         io.emit('transaction:deleted', transaction.id);

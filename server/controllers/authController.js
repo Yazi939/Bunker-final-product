@@ -1,4 +1,6 @@
-const { User } = require('../models');
+const { User, AllowedDevice } = require('../models');
+const { Op } = require('sequelize');
+const { normalizeMac, isEnabled } = require('../utils/macUtils');
 
 const authController = {
   // @desc    Регистрация пользователя
@@ -76,6 +78,39 @@ const authController = {
           success: false,
           error: 'Неверное имя пользователя или пароль'
         });
+      }
+
+      const enforceMacWhitelist = isEnabled(process.env.ENFORCE_MAC_WHITELIST);
+      const rawDeviceMac = req.body?.deviceMac || req.headers['x-device-mac'];
+      const normalizedDeviceMac = rawDeviceMac ? normalizeMac(rawDeviceMac) : null;
+      if (rawDeviceMac && !normalizedDeviceMac) {
+        return res.status(400).json({
+          success: false,
+          error: 'Некорректный MAC-адрес устройства'
+        });
+      }
+      if (enforceMacWhitelist) {
+        if (!normalizedDeviceMac) {
+          return res.status(403).json({
+            success: false,
+            error: 'Вход разрешен только с зарегистрированного устройства'
+          });
+        }
+
+        const allowedDevice = await AllowedDevice.findOne({
+          where: {
+            mac: normalizedDeviceMac,
+            isActive: true,
+            [Op.or]: [{ userId: null }, { userId: user.id }]
+          }
+        });
+
+        if (!allowedDevice) {
+          return res.status(403).json({
+            success: false,
+            error: 'Это устройство не разрешено администратором'
+          });
+        }
       }
 
       sendTokenResponse(user, 200, res);

@@ -1,29 +1,11 @@
 import axios from 'axios';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 // Автоматическое определение API URL в зависимости от платформы
 const getApiUrl = () => {
-  if (typeof window !== 'undefined' && window.API_BASE_URL) {
-    return window.API_BASE_URL;
-  }
-
-  if (typeof window !== 'undefined' && window.location) {
-    const isCapacitorWebView =
-      window.location.hostname === 'localhost' &&
-      !window.location.port;
-    if (isCapacitorWebView) {
-      return 'http://91.237.249.96:5000/api';
-    }
-    if (window.location.protocol === 'https:') {
-      return 'https://bunker-boats.ru/api';
-    }
-    if (window.location.protocol === 'http:' && window.location.hostname) {
-      return `http://${window.location.hostname}:5000/api`;
-    }
-  }
-  if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
-  return 'http://89.169.170.164:5000/api';
+  // Для Android APK и прод-сценария фиксируем прямой адрес API,
+  // чтобы исключить ошибки автодетекта hostname/port.
+  return 'http://91.237.249.96:5000/api';
 };
 
 const API_URL = getApiUrl();
@@ -36,9 +18,7 @@ const api = axios.create({
     'Content-Type': 'application/json'
   },
   // Увеличиваем таймаут для запросов
-  timeout: 10000,
-  // Добавляем withCredentials для CORS
-  withCredentials: true
+  timeout: 15000
 });
 
 // Перехватчик для добавления токена авторизации
@@ -71,43 +51,97 @@ api.interceptors.response.use(
   }
 );
 
+const isNative = () => Capacitor.isNativePlatform();
+
+const buildHeaders = () => {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('token');
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
+
+const toQueryString = (params = {}) => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      search.append(key, String(value));
+    }
+  });
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+};
+
+const request = async (method, path, { data, params } = {}) => {
+  if (isNative()) {
+    const url = `${API_URL}${path}${toQueryString(params)}`;
+    const nativeRes = await CapacitorHttp.request({
+      method: method.toUpperCase(),
+      url,
+      headers: buildHeaders(),
+      data
+    });
+    return { data: nativeRes.data, status: nativeRes.status };
+  }
+
+  return api.request({
+    method,
+    url: path,
+    data,
+    params
+  });
+};
+
 // Транзакции топлива
 export const fuelService = {
-  getTransactions: () => api.get('/fuel'),
-  getTransaction: (id) => api.get(`/fuel/${id}`),
-  createTransaction: (data) => api.post('/fuel', data),
-  updateTransaction: (id, data) => api.put(`/fuel/${id}`, data),
-  deleteTransaction: (id) => api.delete(`/fuel/transaction/${id}`),
-  getAllTransactions: () => api.get('/fuel/all'),
+  getTransactions: () => request('get', '/fuel'),
+  getTransaction: (id) => request('get', `/fuel/${id}`),
+  createTransaction: (data) => request('post', '/fuel', { data }),
+  updateTransaction: (id, data) => request('put', `/fuel/${id}`, { data }),
+  deleteTransaction: (id) => request('delete', `/fuel/transaction/${id}`),
+  getAllTransactions: () => request('get', '/fuel/all'),
 };
 
 // Смены
 export const shiftService = {
-  getShifts: (params) => api.get('/shifts', { params }).then(res => res.data),
-  getShift: (id) => api.get(`/shifts/${id}`).then(res => res.data),
-  createShift: (data) => api.post('/shifts', data).then(res => res.data),
-  updateShift: (id, data) => api.put(`/shifts/${id}`, data).then(res => res.data),
-  deleteShift: (id) => api.delete(`/shifts/${id}`).then(res => res.data)
+  getShifts: (params) => request('get', '/shifts', { params }).then(res => res.data),
+  getShift: (id) => request('get', `/shifts/${id}`).then(res => res.data),
+  createShift: (data) => request('post', '/shifts', { data }).then(res => res.data),
+  updateShift: (id, data) => request('put', `/shifts/${id}`, { data }).then(res => res.data),
+  deleteShift: (id) => request('delete', `/shifts/${id}`).then(res => res.data)
 };
 
 // Пользователи
 export const userService = {
-  getUsers: () => api.get('/users'),
-  getUser: (id) => api.get(`/users/${id}`),
-  createUser: (data) => api.post('/users', data),
-  updateUser: (id, data) => api.put(`/users/${id}`, data),
-  deleteUser: (id) => api.delete(`/users/${id}`),
-  login: (username, password) => api.post('/users/login', { username, password }),
-  getCurrentUser: () => api.get('/users/me')
+  getUsers: () => request('get', '/users'),
+  getUser: (id) => request('get', `/users/${id}`),
+  createUser: (data) => request('post', '/users', { data }),
+  updateUser: (id, data) => request('put', `/users/${id}`, { data }),
+  deleteUser: (id) => request('delete', `/users/${id}`),
+  login: (username, password) => request('post', '/users/login', { data: { username, password } }),
+  getCurrentUser: () => request('get', '/users/me')
+};
+
+const unwrapData = async (promise) => {
+  const res = await promise;
+  return res && res.data !== undefined ? res.data : res;
+};
+
+export const deviceService = {
+  getDevices: () => unwrapData(request('get', '/devices')),
+  createDevice: (data) => unwrapData(request('post', '/devices', { data })),
+  updateDevice: (id, data) => unwrapData(request('put', `/devices/${id}`, { data })),
+  deleteDevice: (id) => unwrapData(request('delete', `/devices/${id}`))
 };
 
 // Заказы
 export const orderService = {
-  getOrders: () => api.get('/orders'),
-  getOrder: (id) => api.get(`/orders/${id}`),
-  createOrder: (data) => api.post('/orders', data),
-  updateOrder: (id, data) => api.put(`/orders/${id}`, data),
-  deleteOrder: (id) => api.delete(`/orders/${id}`)
+  getOrders: () => request('get', '/orders'),
+  getOrder: (id) => request('get', `/orders/${id}`),
+  createOrder: (data) => request('post', '/orders', { data }),
+  updateOrder: (id, data) => request('put', `/orders/${id}`, { data }),
+  deleteOrder: (id) => request('delete', `/orders/${id}`)
 };
 
 export default api; 

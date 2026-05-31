@@ -6,13 +6,14 @@ import {
   ShoppingCartOutlined, ScheduleOutlined, CalendarOutlined,
   LogoutOutlined, UserOutlined, SettingOutlined,
   MenuUnfoldOutlined, MenuFoldOutlined, DownOutlined,
-  DollarOutlined
+  DollarOutlined, MobileOutlined
 } from '@ant-design/icons';
 import type { AntdIconProps } from '@ant-design/icons/lib/components/AntdIcon';
 import { getCurrentUser, logoutUser, UserRole, User } from './utils/users';
 import Dashboard from './components/Dashboard/Dashboard';
 import FuelTrading from './components/FuelTrading/FuelTrading';
 import UserManagement from './components/UserManagement/UserManagement';
+import DeviceManagement from './components/DeviceManagement/DeviceManagement';
 import ShiftManagement from './components/ShiftManagement/ShiftManagement';
 import Orders from './components/Orders/Orders';
 import Login from './components/Login/Login';
@@ -61,6 +62,11 @@ const adminMenuItems: MenuItem[] = [
     key: 'users',
     icon: <TeamOutlined className="white-icon" />,
     label: 'Пользователи',
+  },
+  {
+    key: 'devices',
+    icon: <MobileOutlined className="white-icon" />,
+    label: 'Устройства',
   },
   {
     key: 'shifts',
@@ -209,6 +215,8 @@ const App: React.FC = () => {
         return currentUser?.role === 'admin' ? <ExpenseManagement /> : null;
       case 'users':
         return currentUser?.role === 'admin' ? <UserManagement /> : null;
+      case 'devices':
+        return currentUser?.role === 'admin' ? <DeviceManagement /> : null;
       case 'shifts':
         return currentUser?.role === 'admin' ? <ShiftManagement /> : null;
       case 'orders':

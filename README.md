@@ -24,8 +24,8 @@ SOCKET_CORS_ORIGINS=http://localhost:8080
 docker compose up --build -d
 ```
 
-Web app: `http://localhost:8080`  
-API: `http://localhost:5000/api/health`
+Web app: `http://localhost:8080` (порт задаётся `WEB_PORT` в `.env`, см. `.env.example`)  
+API: `http://localhost:5000/api/health` (в браузере веб-клиент ходит на `/api` через nginx того же порта)
 
 Stop:
 

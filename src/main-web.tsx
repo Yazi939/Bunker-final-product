@@ -8,15 +8,15 @@ if (typeof window !== 'undefined') {
   const fromEnv = import.meta.env.VITE_API_BASE_URL;
   const isCapacitorWebView =
     window.location.hostname === 'localhost' &&
-    !window.location.port;
+    window.location.port !== '5174';
 
-  window.API_BASE_URL =
+  (window as any).API_BASE_URL =
     fromEnv ||
     (isCapacitorWebView
       ? 'http://91.237.249.96:5000/api'
       : window.location.protocol === 'https:'
         ? 'https://bunker-boats.ru/api'
-        : `http://${window.location.hostname}:5000/api`);
+        : `${window.location.origin}/api`);
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

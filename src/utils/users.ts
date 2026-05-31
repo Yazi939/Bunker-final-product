@@ -1,5 +1,6 @@
 import { mockUsers } from './mockData';
 import { userService } from '../services/api';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 // Типы пользователей
 export type UserRole = 'admin' | 'moderator' | 'worker' | 'pier' | 'bunker';
@@ -70,27 +71,70 @@ export const rolePermissions = {
 // Авторизация пользователя
 export const loginUser = async (username: string, password: string): Promise<User | null> => {
   try {
-    // Всегда используем только серверную авторизацию
-    const response = await userService.login(username, password);
-    if (response.data && response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      
-      const user = response.data.user || {
-        id: response.data.id,
-        username: response.data.username,
-        role: response.data.role,
-        name: response.data.name
+    const apiBaseUrl =
+      typeof window !== 'undefined' && (window as any).API_BASE_URL
+        ? (window as any).API_BASE_URL
+        : 'http://91.237.249.96:5000/api';
+
+    const storedDeviceMac = localStorage.getItem('deviceMac');
+    const configuredDeviceMac =
+      typeof window !== 'undefined' && (window as any).DEVICE_MAC
+        ? String((window as any).DEVICE_MAC)
+        : '';
+    const deviceMac = (storedDeviceMac || configuredDeviceMac || '').trim() || undefined;
+
+    let data: any = {};
+    if (Capacitor.isNativePlatform()) {
+      // Нативный HTTP обходит ограничения WebView (CORS/cleartext/mixed content).
+      const nativeResponse = await CapacitorHttp.post({
+        url: `${apiBaseUrl}/users/login`,
+        headers: { 'Content-Type': 'application/json' },
+        data: { username, password, deviceMac },
+      });
+      data =
+        typeof nativeResponse.data === 'string'
+          ? JSON.parse(nativeResponse.data || '{}')
+          : (nativeResponse.data || {});
+      if (nativeResponse.status < 200 || nativeResponse.status >= 300) {
+        const message = data?.error || `HTTP ${nativeResponse.status}`;
+        throw new Error(message);
+      }
+    } else {
+      const loginResponse = await fetch(`${apiBaseUrl}/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, deviceMac }),
+        credentials: 'omit',
+        mode: 'cors'
+      });
+      data = await loginResponse.json().catch(() => ({}));
+      if (!loginResponse.ok) {
+        const message = data?.error || `HTTP ${loginResponse.status}`;
+        throw new Error(message);
+      }
+    }
+
+    if (data && data.token) {
+      localStorage.setItem('token', data.token);
+
+      const user = data.user || {
+        id: data.id,
+        username: data.username,
+        role: data.role,
+        name: data.name
       };
-      
-      // Сохраняем данные пользователя в localStorage
+
       localStorage.setItem('currentUser', JSON.stringify(user));
-      
       return user;
     }
     return null;
   } catch (error) {
-    console.error('Error logging in:', error);
-    return null;
+    console.error('Error logging in (fetch):', error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Ошибка сети при обращении к серверу';
+    throw new Error(message);
   }
 };
 

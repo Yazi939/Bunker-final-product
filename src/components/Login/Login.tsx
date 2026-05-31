@@ -10,11 +10,6 @@ interface LoginProps {
   onLoginSuccess: (user: any) => void;
 }
 
-const iconProps = {
-  onPointerEnterCapture: () => {},
-  onPointerLeaveCapture: () => {}
-};
-
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
@@ -35,10 +30,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       }
     } catch (error) {
       console.error('Login error:', error);
+      const serverMessage =
+        (error as any)?.response?.data?.error ||
+        (error as any)?.message ||
+        'Произошла ошибка при входе';
       form.setFields([
         {
           name: 'password',
-          errors: ['Произошла ошибка при входе'],
+          errors: [serverMessage],
         },
       ]);
     } finally {
@@ -63,7 +62,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             rules={[{ required: true, message: 'Введите логин' }]}
           >
             <Input
-              prefix={<UserOutlined {...iconProps} />}
+              prefix={<UserOutlined />}
               placeholder="Логин"
               size="large"
             />
@@ -73,7 +72,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             rules={[{ required: true, message: 'Введите пароль' }]}
           >
             <Input.Password
-              prefix={<LockOutlined {...iconProps} />}
+              prefix={<LockOutlined />}
               placeholder="Пароль"
               size="large"
             />

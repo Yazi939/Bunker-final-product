@@ -1,11 +1,13 @@
-const CACHE_NAME = 'bunker-boats-v2.1.9';
+const CACHE_NAME = 'bunker-boats-v2.2.1';
 const urlsToCache = [
   '/',
   './main.js',
   './main.css',
   './manifest-web.json',
+  './icon.ico',
   './icon-192x192.png',
-  './icon-512x512.png'
+  './icon-512x512.png',
+  './brand-logo.png'
 ];
 
 self.addEventListener('install', function(event) {

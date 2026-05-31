@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const FuelTransaction = require('./FuelTransaction');
 const Expense = require('./Expense');
+const AllowedDevice = require('./AllowedDevice');
 
 // Определение модели User  
 const User = sequelize.define('User', {
@@ -120,11 +121,13 @@ const Data = sequelize.define('Data', {
 // Определяем связи
 Shift.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 FuelTransaction.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+AllowedDevice.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 module.exports = {
     User,
     Shift,
     Data,
     FuelTransaction,
-    Expense
+    Expense,
+    AllowedDevice
 }; 
