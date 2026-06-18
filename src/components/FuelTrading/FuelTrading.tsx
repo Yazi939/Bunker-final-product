@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Form, Input, Button, Table, Space, Typography, Row, Col, Divider, Select, DatePicker, Statistic, notification, Radio, Modal, Tag, ConfigProvider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, FilterOutlined, UserOutlined, CarOutlined, InfoCircleOutlined, PlusOutlined, SettingOutlined, PartitionOutlined } from '@ant-design/icons';
@@ -17,10 +17,14 @@ import ruRU from 'antd/es/locale/ru_RU';
 import { DatePicker as AntdDatePicker } from 'antd';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 
 // Подключаем плагины
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -174,30 +178,23 @@ const FuelTrading: React.FC = () => {
         return false;
       }
       
-      // Получаем дату транзакции
-      let transactionDateStr = '';
-      if (t.createdAt) {
-        // Берем только дату из строки времени (первые 10 символов: YYYY-MM-DD)
-        transactionDateStr = t.createdAt.substring(0, 10);
-      } else {
+      // Корректно обрабатываем дату с учётом локального часового пояса
+      if (!t.createdAt) {
         return false;
       }
-      
-      // Получаем сегодняшнюю дату в формате YYYY-MM-DD
-      const today = new Date();
-      const todayStr = today.getFullYear() + '-' + 
-                      String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                      String(today.getDate()).padStart(2, '0');
+
+      const transactionDateStr = dayjs(t.createdAt).local().format('YYYY-MM-DD');
+      const todayDateStr = dayjs().local().format('YYYY-MM-DD');
       
       console.log('Простая проверка даты:', {
         transactionId: t.id,
         transactionDate: transactionDateStr,
-        todayDate: todayStr,
-        isToday: transactionDateStr === todayStr
+        todayDate: todayDateStr,
+        isToday: transactionDateStr === todayDateStr
       });
       
       // Только сегодняшние операции (сравниваем строки дат)
-      if (!(isNotFrozen && transactionDateStr === todayStr)) {
+      if (!(isNotFrozen && transactionDateStr === todayDateStr)) {
         return false;
       }
       
@@ -231,13 +228,12 @@ const FuelTrading: React.FC = () => {
           return false;
         }
         
-        // Получаем дату транзакции (только дату, первые 10 символов: YYYY-MM-DD)
-        let transactionDateStr = '';
-        if (t.createdAt) {
-          transactionDateStr = t.createdAt.substring(0, 10);
-        } else {
+        // Корректно преобразуем дату в локальном часовом поясе для архива
+        if (!t.createdAt) {
           return false;
         }
+
+        const transactionDateStr = dayjs(t.createdAt).local().format('YYYY-MM-DD');
         
         // Фильтр по типу оплаты для архива
         if (filterArchivePaymentMethod && t.paymentMethod !== filterArchivePaymentMethod) {
@@ -958,18 +954,14 @@ const FuelTrading: React.FC = () => {
       return false;
     }
     
-    // Получаем дату транзакции (только дату, первые 10 символов: YYYY-MM-DD)
-    let transactionDateStr = '';
-    if (t.createdAt) {
-      transactionDateStr = t.createdAt.substring(0, 10);
-    } else {
+    if (!t.createdAt) {
       return false;
     }
-    
-    // Получаем сегодняшнюю дату в формате YYYY-MM-DD
-    const todayDateStr = dayjs().format('YYYY-MM-DD');
-    
-    // Простое сравнение строк дат (точно как в архиве)
+
+    // Сравниваем даты в локальном часовом поясе, чтобы исключить ошибки UTC
+    const transactionDateStr = dayjs(t.createdAt).local().format('YYYY-MM-DD');
+    const todayDateStr = dayjs().local().format('YYYY-MM-DD');
+
     return transactionDateStr === todayDateStr;
   });
   
@@ -979,9 +971,50 @@ const FuelTrading: React.FC = () => {
   console.log('Сегодняшние транзакции:', todayTransactions);
   
   const dailyRevenue = calcDailyRevenueByPaymentMethod(todayTransactions);
-  
-  console.log('Дневная выручка:', dailyRevenue);
-  console.log('=== КОНЕЦ ОТЛАДКИ ===');
+
+  // Мемоизированный контент статистики архива (избавляемся от IIFE в JSX)
+  const archiveStatsContent = useMemo(() => {
+    if (!selectedArchiveDate || archiveDayTransactions.length === 0) return null;
+
+    const dayStats = calcStatsForTransactions(archiveDayTransactions);
+    const fuelTypes = Array.from(new Set(archiveDayTransactions.map(t => t.fuelType)));
+    const fuelRows = fuelTypes.map(fuelType => {
+      const fuelTrans = archiveDayTransactions.filter(t => t.fuelType === fuelType);
+      const purchased = fuelTrans.filter(t => t.type === 'purchase').reduce((sum, t) => sum + (t.volume || 0), 0);
+      const sold = fuelTrans.filter(t => t.type === 'sale').reduce((sum, t) => sum + (t.volume || 0), 0);
+      const purchaseCost = fuelTrans.filter(t => t.type === 'purchase').reduce((sum, t) => sum + (t.totalCost || 0), 0);
+      const saleIncome = fuelTrans.filter(t => t.type === 'sale').reduce((sum, t) => sum + (t.totalCost || 0), 0);
+      const profit = sold * (purchased > 0 ? purchaseCost / purchased : 0) > 0 ? saleIncome - sold * (purchaseCost / purchased) : 0;
+      return { fuelType, purchased, sold, profit };
+    });
+
+    return (
+      <div>
+        <Row gutter={[16, 16]}>
+          <Col span={12}><Statistic title="Куплено" value={dayStats.totalPurchased} precision={2} suffix="л" /></Col>
+          <Col span={12}><Statistic title="Продано" value={dayStats.totalSold} precision={2} suffix="л" /></Col>
+          <Col span={24}><Statistic title="Прибыль" value={dayStats.profit} precision={2} prefix="₽" valueStyle={{ color: dayStats.profit > 0 ? '#3f8600' : '#cf1322' }} /></Col>
+        </Row>
+        <div style={{ marginTop: 16 }}>
+          <div className="tableWrapper">
+            <Table
+              className="responsiveTable"
+              size="small"
+              pagination={false}
+              columns={[
+                { title: 'Топливо', dataIndex: 'fuelType', key: 'fuelType', render: (v: string) => FUEL_TYPES.find(f => f.value === v)?.label || v },
+                { title: 'Куплено (л)', dataIndex: 'purchased', key: 'purchased', render: (v: number) => v.toFixed(2) },
+                { title: 'Продано (л)', dataIndex: 'sold', key: 'sold', render: (v: number) => v.toFixed(2) },
+                { title: 'Прибыль (₽)', dataIndex: 'profit', key: 'profit', render: (v: number) => <span style={{ color: v > 0 ? '#3f8600' : '#cf1322' }}>{v.toFixed(2)}</span> }
+              ]}
+              dataSource={fuelRows}
+              rowKey={row => String(row.fuelType || '')}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }, [selectedArchiveDate, archiveDayTransactions]);
 
   // Отладочный вывод для проверки расчёта остатков по дизелю (только при изменении)
   // console.log('Остаток дизеля на бункере:', metrics.fuelTypeStats['diesel']?.bunkerBalance);
@@ -1300,20 +1333,23 @@ const FuelTrading: React.FC = () => {
                 </Row>
               </Space>
               
-              <Table 
-                columns={advancedMode ? advancedColumns : columns} 
-                dataSource={filteredTransactions} 
-                pagination={{
-                  pageSize: 10,
-                  showSizeChanger: true,
-                  showTotal: (total: number) => `Всего ${total} записей`,
-                  pageSizeOptions: ['10', '20', '50', '100'],
-                  showQuickJumper: true
-                }}
-                scroll={{ x: 'max-content' }}
-                rowClassName={() => 'fuel-table-row'}
-                loading={loading}
-              />
+              <div className="tableWrapper">
+                <Table
+                  className="responsiveTable"
+                  columns={advancedMode ? advancedColumns : columns}
+                  dataSource={filteredTransactions}
+                  pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    showTotal: (total: number) => `Всего ${total} записей`,
+                    pageSizeOptions: ['10', '20', '50', '100'],
+                    showQuickJumper: true
+                  }}
+                  scroll={{ x: 'max-content' }}
+                  rowClassName={() => 'fuel-table-row'}
+                  loading={loading}
+                />
+              </div>
             </Card>
 
             {/* Блок выручки за день в столбик */}
@@ -1424,54 +1460,20 @@ const FuelTrading: React.FC = () => {
                 </Row>
                 
                 {selectedArchiveDate && (
-                  <Table
-                    columns={advancedMode ? advancedColumns : columns}
-                    dataSource={archiveDayTransactions}
-                    pagination={false}
-                    rowClassName={() => 'fuel-table-row'}
-                    scroll={{ x: 'max-content' }}
-                    style={{ marginTop: 16 }}
-                  />
+                  <div className="tableWrapper" style={{ marginTop: 16 }}>
+                    <Table
+                      className="responsiveTable"
+                      columns={advancedMode ? advancedColumns : columns}
+                      dataSource={archiveDayTransactions}
+                      pagination={false}
+                      rowClassName={() => 'fuel-table-row'}
+                      scroll={{ x: 'max-content' }}
+                    />
+                  </div>
                 )}
                 {selectedArchiveDate && archiveDayTransactions.length > 0 && (
                   <Card title={`Статистика за ${selectedArchiveDate.format('DD.MM.YYYY')}`} size="small" style={{ marginTop: 16 }}>
-                    {(() => {
-                      const dayStats = calcStatsForTransactions(archiveDayTransactions);
-                      // Сводная таблица по видам топлива
-                      const fuelTypes = Array.from(new Set(archiveDayTransactions.map(t => t.fuelType)));
-                      const fuelRows = fuelTypes.map(fuelType => {
-                        const fuelTrans = archiveDayTransactions.filter(t => t.fuelType === fuelType);
-                        const purchased = fuelTrans.filter(t => t.type === 'purchase').reduce((sum, t) => sum + (t.volume || 0), 0);
-                        const sold = fuelTrans.filter(t => t.type === 'sale').reduce((sum, t) => sum + (t.volume || 0), 0);
-                        const purchaseCost = fuelTrans.filter(t => t.type === 'purchase').reduce((sum, t) => sum + (t.totalCost || 0), 0);
-                        const saleIncome = fuelTrans.filter(t => t.type === 'sale').reduce((sum, t) => sum + (t.totalCost || 0), 0);
-                        const profit = sold * (purchased > 0 ? purchaseCost / purchased : 0) > 0 ? saleIncome - sold * (purchaseCost / purchased) : 0;
-                        return { fuelType, purchased, sold, profit };
-                      });
-                      return (
-                        <div>
-                          <Row gutter={[16, 16]}>
-                            <Col span={12}><Statistic title="Куплено" value={dayStats.totalPurchased} precision={2} suffix="л" /></Col>
-                            <Col span={12}><Statistic title="Продано" value={dayStats.totalSold} precision={2} suffix="л" /></Col>
-                            <Col span={24}><Statistic title="Прибыль" value={dayStats.profit} precision={2} prefix="₽" valueStyle={{ color: dayStats.profit > 0 ? '#3f8600' : '#cf1322' }} /></Col>
-                          </Row>
-                          <div style={{ marginTop: 16 }}>
-                            <Table
-                              size="small"
-                              pagination={false}
-                              columns={[
-                                { title: 'Топливо', dataIndex: 'fuelType', key: 'fuelType', render: v => FUEL_TYPES.find(f => f.value === v)?.label || v },
-                                { title: 'Куплено (л)', dataIndex: 'purchased', key: 'purchased', render: v => v.toFixed(2) },
-                                { title: 'Продано (л)', dataIndex: 'sold', key: 'sold', render: v => v.toFixed(2) },
-                                { title: 'Прибыль (₽)', dataIndex: 'profit', key: 'profit', render: v => <span style={{ color: v > 0 ? '#3f8600' : '#cf1322' }}>{v.toFixed(2)}</span> }
-                              ]}
-                              dataSource={fuelRows}
-                              rowKey={row => String(row.fuelType || '')}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })()}
+                    {archiveStatsContent}
                   </Card>
                 )}
               </Space>

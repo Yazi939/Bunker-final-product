@@ -20,7 +20,7 @@ call npm run build
 
 REM Запускаем Electron в production-режиме
 echo Starting Electron in production mode...
-start /B cmd /c "set NODE_ENV=production && electron ."
+start /B cmd /c "set NODE_ENV=production && npx electron ."
 
 echo Application started!
 pause
