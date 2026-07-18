@@ -4,7 +4,6 @@ import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { fuelService } from '../services/api';
 import { FUEL_TYPES } from '../constants/fuelTypes';
-import { applyFuelBalanceEffect, clampFuelBalances } from '../utils/fuelBalanceUtils';
 
 // Подключаем плагины
 dayjs.extend(isSameOrAfter);
@@ -39,8 +38,6 @@ interface FuelMetrics {
   baseBalance: number;
   bunkerBalance: number;
   totalBalance: number;
-  rawBaseBalance: number;
-  rawBunkerBalance: number;
   
   // Статистика по типам топлива
   fuelTypeStats: Record<string, {
@@ -50,10 +47,7 @@ interface FuelMetrics {
     adjusted: number;
     baseBalance: number;
     bunkerBalance: number;
-        rawBaseBalance: number;
-        rawBunkerBalance: number;
     currentBalance: number;
-        adjustment: number;
   }>;
   
   // Средние цены
@@ -77,8 +71,6 @@ export const useFuelMetrics = (
     baseBalance: 0,
     bunkerBalance: 0,
     totalBalance: 0,
-    rawBaseBalance: 0,
-    rawBunkerBalance: 0,
     fuelTypeStats: {},
     averageSalePrice: 0,
     averagePurchasePrice: 0
@@ -102,10 +94,7 @@ export const useFuelMetrics = (
           adjusted: 0,
           baseBalance: 0,
           bunkerBalance: 0,
-          rawBaseBalance: 0,
-          rawBunkerBalance: 0,
-          currentBalance: 0,
-          adjustment: 0,
+          currentBalance: 0
         };
       }
     });
@@ -113,41 +102,40 @@ export const useFuelMetrics = (
       if (t.frozen) return;
       const volume = Number(t.volume) || 0;
       const stats = allFuelTypeStats[t.fuelType];
-      if (t.type === 'sale' || t.type === 'bunker_sale') {
-        stats.sold += volume;
+      switch (t.type) {
+        case 'sale':
+          stats.sold += volume;
+          stats.bunkerBalance -= volume;
+          allBunkerBalance -= volume;
+          break;
+        case 'bunker_sale':
+          stats.sold += volume;
+          stats.baseBalance -= volume;
+          allBaseBalance -= volume;
+          break;
+        case 'purchase':
+          stats.purchased += volume;
+          stats.baseBalance += volume;
+          allBaseBalance += volume;
+          break;
+        case 'base_to_bunker':
+          stats.transferred += volume;
+          stats.baseBalance -= volume;
+          stats.bunkerBalance += volume;
+          allBaseBalance -= volume;
+          allBunkerBalance += volume;
+          break;
+        case 'bunker_to_base':
+          stats.transferred += volume;
+          stats.bunkerBalance -= volume;
+          stats.baseBalance += volume;
+          allBunkerBalance -= volume;
+          allBaseBalance += volume;
+          break;
       }
-      if (t.type === 'purchase') {
-        stats.purchased += volume;
-      }
-      if (t.type === 'base_to_bunker' || t.type === 'bunker_to_base') {
-        stats.transferred += volume;
-      }
-
-      const rawByType = applyFuelBalanceEffect(t.type, volume, {
-        baseBalance: stats.rawBaseBalance,
-        bunkerBalance: stats.rawBunkerBalance,
-      });
-      stats.rawBaseBalance = rawByType.baseBalance;
-      stats.rawBunkerBalance = rawByType.bunkerBalance;
-      const clampedByType = clampFuelBalances(rawByType);
-      stats.baseBalance = clampedByType.baseBalance;
-      stats.bunkerBalance = clampedByType.bunkerBalance;
-      stats.adjustment = clampedByType.baseAdjustment + clampedByType.bunkerAdjustment;
       stats.currentBalance = stats.baseBalance + stats.bunkerBalance;
-
-      const rawGlobal = applyFuelBalanceEffect(t.type, volume, {
-        baseBalance: allBaseBalance,
-        bunkerBalance: allBunkerBalance,
-      });
-      allBaseBalance = rawGlobal.baseBalance;
-      allBunkerBalance = rawGlobal.bunkerBalance;
     });
-    const clampedGlobal = clampFuelBalances({
-      baseBalance: allBaseBalance,
-      bunkerBalance: allBunkerBalance,
-    });
-    const allTotalBalance = clampedGlobal.baseBalance + clampedGlobal.bunkerBalance;
-    const totalAdjusted = clampedGlobal.baseAdjustment + clampedGlobal.bunkerAdjustment;
+    const allTotalBalance = allBaseBalance + allBunkerBalance;
 
     // Дневная статистика — только по выбранному дню/периоду
     let filteredTransactions = allTransactions.filter((t: UniversalFuelTransaction) => {
@@ -215,10 +203,7 @@ export const useFuelMetrics = (
         adjusted: dayStatsByType[fuelType]?.adjusted || 0,
         baseBalance: allFuelTypeStats[fuelType]?.baseBalance || 0,
         bunkerBalance: allFuelTypeStats[fuelType]?.bunkerBalance || 0,
-        rawBaseBalance: allFuelTypeStats[fuelType]?.rawBaseBalance || 0,
-        rawBunkerBalance: allFuelTypeStats[fuelType]?.rawBunkerBalance || 0,
-        currentBalance: allFuelTypeStats[fuelType]?.currentBalance || 0,
-        adjustment: allFuelTypeStats[fuelType]?.adjustment || 0,
+        currentBalance: allFuelTypeStats[fuelType]?.currentBalance || 0
       };
     });
     const totalProfit = totalSaleIncome - totalPurchaseCost;
@@ -229,16 +214,14 @@ export const useFuelMetrics = (
       totalSold,
       totalPurchased,
       totalTransferred,
-      totalAdjusted,
+      totalAdjusted: 0,
       totalSaleIncome,
       totalPurchaseCost,
       totalProfit,
       profitMargin,
-      baseBalance: clampedGlobal.baseBalance,
-      bunkerBalance: clampedGlobal.bunkerBalance,
+      baseBalance: allBaseBalance,
+      bunkerBalance: allBunkerBalance,
       totalBalance: allTotalBalance,
-      rawBaseBalance: clampedGlobal.rawBaseBalance,
-      rawBunkerBalance: clampedGlobal.rawBunkerBalance,
       fuelTypeStats,
       averageSalePrice,
       averagePurchasePrice

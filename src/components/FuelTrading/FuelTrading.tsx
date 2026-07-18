@@ -17,7 +17,7 @@ import ruRU from 'antd/es/locale/ru_RU';
 import { DatePicker as AntdDatePicker } from 'antd';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-import { getFuelRemainderValueStyle } from '../../utils/fuelDisplayUtils';
+import { getBaseFuelRemainderValueStyle, getFuelBalanceValueStyle } from '../../utils/fuelDisplayUtils';
 
 // Подключаем плагины
 dayjs.extend(isSameOrAfter);
@@ -1204,7 +1204,7 @@ const FuelTrading: React.FC = () => {
                             value={data.baseBalance}
                             precision={2}
                             suffix="л"
-                            valueStyle={getFuelRemainderValueStyle(data.baseBalance)}
+                            valueStyle={getBaseFuelRemainderValueStyle(data.baseBalance)}
                           />
                         </Col>
                         <Col span={12}>
@@ -1213,7 +1213,7 @@ const FuelTrading: React.FC = () => {
                             value={data.bunkerBalance}
                             precision={2}
                             suffix="л"
-                            valueStyle={getFuelRemainderValueStyle(data.bunkerBalance)}
+                            valueStyle={getFuelBalanceValueStyle(data.bunkerBalance)}
                           />
                         </Col>
                         <Col span={12}>

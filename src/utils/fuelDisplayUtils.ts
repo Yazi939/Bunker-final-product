@@ -6,7 +6,8 @@ const COLOR_LOW = '#cf1322';
 const LOW_FUEL_GLOW =
   '0 0 6px rgba(207, 19, 34, 0.9), 0 0 14px rgba(255, 77, 79, 0.55), 0 0 22px rgba(255, 77, 79, 0.35)';
 
-export function getFuelRemainderValueStyle(balance: number): CSSProperties {
+/** Остаток на базе: красное свечение при < 4 т (4000 л) */
+export function getBaseFuelRemainderValueStyle(balance: number): CSSProperties {
   if (balance <= 0) {
     return { color: COLOR_LOW };
   }
@@ -14,4 +15,9 @@ export function getFuelRemainderValueStyle(balance: number): CSSProperties {
     return { color: COLOR_LOW, textShadow: LOW_FUEL_GLOW };
   }
   return { color: COLOR_OK };
+}
+
+/** Прочие остатки (бункеровщик, общий): только знак */
+export function getFuelBalanceValueStyle(balance: number): CSSProperties {
+  return { color: balance > 0 ? COLOR_OK : COLOR_LOW };
 }
